@@ -1,0 +1,252 @@
+<?php
+
+  require_once(dirname(__FILE__) . "/../unchroot/unchroot.phs");
+
+  require_once(dirname(__FILE__) . "/mailconf.def.phs");
+  require_once(dirname(__FILE__) . "/mailconf.func.phs");
+
+  function mailconf($filename) {
+    if (is_file($filename)) {
+      $raw_input = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+      if (false !== $raw_input) {
+        $clean_input = array();
+
+        for ($index = 0; $index < count($raw_input); $index++) {
+          $line = $raw_input[$index];
+
+          // kill comments
+          $comment_pos = stripos($line, COMMENT_CHAR);
+          if (false !== $comment_pos) {
+            $line = substr($line, 0, $comment_pos);
+          }
+
+          // remove unnessary characters
+          $line = trim($line);
+
+          // if line has some content
+          if (0 < strlen($line)) {
+            // check if it is a domain or an address
+            if ((0 === stripos($line, O_BRACKET_CHAR)) &&
+                ((strlen($line)-1) === stripos($line, C_BRACKET_CHAR))) {
+              // kill bracket and unnecessary characters
+              $line = trim(substr($line, strlen(O_BRACKET_CHAR), -strlen(C_BRACKET_CHAR)));
+
+              // check if it is an address
+              $address_pos = stripos($line, ADDRESS_CHAR);
+
+              // address char must not be the first character in the line
+              // or the last character in the line
+              if ((false !== $address_pos) &&
+                  (0 < $address_pos) &&
+                  ((strlen($line)-1) > $address_pos)) {
+                $left_line  = trim(substr($line, 0, $address_pos));
+                $right_line = trim(substr($line, $address_pos+strlen(ADDRESS_CHAR)));
+
+                $tmp = array();
+                $tmp[LEFT_VALUE]  = $left_line;
+                $tmp[RIGHT_VALUE] = $right_line;
+                $tmp[STATE_VALUE] = ADDRESS_STATE;
+
+                // add to clean input
+                array_push($clean_input, $tmp);
+              } else {
+                if (false === $address_pos) {
+                  // remove unnessary characters
+                  $line = trim($line);
+
+                  // we identify the configuration block this way
+                  if (0 === strlen($line)) {
+                    $line = null;
+                  }
+
+                  $tmp = array();
+                  $tmp[LEFT_VALUE]  = $line;
+                  $tmp[RIGHT_VALUE] = null;
+                  $tmp[STATE_VALUE] = DOMAIN_STATE;
+
+                  // add to clean input
+                  array_push($clean_input, $tmp);
+                } else {
+                  print("FAIL: unknown syntax of line: " . $raw_input[$index] . "\n");
+                  exit(3);
+                }
+              }
+            } else {
+              // check if it is an assignment
+              $assignment_pos = stripos($line, ASSIGNMENT_CHAR);
+
+              // assignment char must not be the first character in the line
+              // but may be the last character in the line
+              if ((false !== $assignment_pos) &&
+                  (0 < $assignment_pos)) {
+                $left_line  = trim(substr($line, 0, $assignment_pos));
+                $right_line = trim(substr($line, $assignment_pos+strlen(ASSIGNMENT_CHAR)));
+
+                $tmp = array();
+                $tmp[LEFT_VALUE]  = $left_line;
+                $tmp[RIGHT_VALUE] = $right_line;
+                $tmp[STATE_VALUE] = ASSIGNMENT_STATE;
+
+                // add to clean input
+                array_push($clean_input, $tmp);
+              } else {
+                print("FAIL: unknown syntax of line: " . $raw_input[$index] . "\n");
+                exit(3);
+              }
+            }
+          }
+        }
+
+        if (0 < count($clean_input)) {
+          // read own configuration
+          $configuration = getConfiguration($clean_input);
+
+          if (null !== $configuration) {
+            // this is the earliest stage that we can try to drop privileges
+            $process_uid = getLastAssignment($configuration, UID_WORD);
+            $process_gid = getLastAssignment($configuration, GID_WORD);        
+
+            // assume that gid = uid if gid is not set
+            if (null === $process_gid) {
+              $process_gid = $process_uid;
+            }
+
+            if ((null !== $process_uid) && (null != $process_gid)) {
+              if (force_unroot($process_uid, $process_gid)) {
+                $addresses = getAddresses($clean_input);
+                $domains   = getDomains($clean_input);
+
+                if (null !== $domains) {
+                  if (null !== $addresses) {
+                    // check if defined addresses belong to defined domains
+                    for ($index = 0; $index < count($addresses); $index++) {
+                      $found = false;
+
+                      // lookup corresponding domain
+                      for ($index2 = 0; $index2 < count($domains); $index2++) {
+                        $found = (0 === strcasecmp($addresses[$index][RIGHT_VALUE], $domains[$index2][LEFT_VALUE]));
+                        if ($found) {
+                          break;
+                        }
+                      }
+
+                      if (!$found) {
+                        print("FAIL: no domain defined for address: " . $addresses[$index][LEFT_VALUE] .
+                              ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . "\n");
+                        exit(9);
+                      }
+                    }
+
+                    // check if defined addresses have assignments
+                    for ($index = 0; $index < count($addresses); $index++) {
+                      $address_assignments = getAddressAssignments($clean_input, $addresses[$index]);
+
+                      if (null === $address_assignments) {
+                        print("FAIL: no assignments for address: " . $addresses[$index][LEFT_VALUE] .
+                              ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . "\n");
+                        exit(10);
+                      }
+                    }
+
+                    // execute file triggers
+                    for ($index = 0; $index < count($configuration); $index++) {
+                      $trigger_pos = stripos($configuration[$index][LEFT_VALUE], FILE_TRIGGER);
+                      if (0 === $trigger_pos) {
+                        $trigger_name = strtolower(trim(substr($configuration[$index][LEFT_VALUE], $trigger_pos+strlen(FILE_TRIGGER))));
+                        $trigger_func = str_replace(TRIGGER_REPLACE_FROM, TRIGGER_REPLACE_TO, $trigger_name);
+
+                        // check if triggered file exists
+                        if (is_file(FILE_BEFORE . $trigger_name . FILE_AFTER)) {
+                          // include triggered file
+                          include_once(FILE_BEFORE . $trigger_name . FILE_AFTER);
+
+                          // check if trigger function exists
+                          if (function_exists($trigger_func)) {
+                            $params = null;
+
+                            // read parameters from configuration
+                            for ($index2 = 0; $index2 < count($configuration); $index2++) {
+                              $param_pos = stripos($configuration[$index2][LEFT_VALUE], FILE_PARAM_BEFORE . $trigger_name);
+                              if (0 === $param_pos) {
+                                $param_name = strtolower(trim(substr($configuration[$index2][LEFT_VALUE], $param_pos+strlen(FILE_PARAM_BEFORE)+strlen($trigger_name))));
+                                if (0 < strlen($param_name)) {
+                                  // kill leading dot
+                                  $param_pos = stripos($param_name, PARAM_CHAR);
+                                  if (0 === $param_pos) {
+                                    $param_name = trim(substr($param_name, $param_pos+strlen(PARAM_CHAR)));
+
+                                    // initialize params
+                                    if (null === $params) {
+                                      $params = array();
+                                    }
+
+                                    $params[$param_name] = $configuration[$index2][RIGHT_VALUE];
+                                  }
+                                } else {
+                                  // initialize params
+                                  if (null === $params) {
+                                    $params = array();
+                                  }
+
+                                  $params[null] = $configuration[$index2][RIGHT_VALUE];
+                                }
+                              }
+                            }
+
+                            // trigger_func($output_path, $clean_input, $domains, $addresses, $params) : boolean
+                            $return = call_user_func($trigger_func, $configuration[$index][RIGHT_VALUE], $clean_input, $domains, $addresses, $params);
+                            if (true === $return) {
+                              print("DONE: " . $configuration[$index][RIGHT_VALUE] . "\n");
+                            } else {
+                              print("WARN: call of trigger " . $trigger_name . " failed: " . $return . "\n");
+                            }
+                          }  else {
+                            print("WARN: function of trigger " . $trigger_name . " does not exist: " . $trigger_func . "\n");
+                          }
+                        } else {
+                          print("WARN: file of trigger " . $trigger_name . " does not exist: " . FILE_BEFORE . $trigger_name . FILE_AFTER . "\n");
+                        }
+                      }
+                    }
+                  } else {
+                    print("FAIL: no addresses defined in file: $filename\n");
+                    exit(8);
+                  }
+                } else {
+                  print("FAIL: no domains defined in file: $filename\n");
+                  exit(7);
+                }
+              }
+            } else {
+              print("FAIL: no process uid and gid defined in file: $filename\n");
+              exit(6);
+            }
+          } else {
+            print("FAIL: no configuration defined in file: $filename\n");
+            exit(5);
+          }
+        } else {
+          print("FAIL: empty file: $filename\n");
+          exit(4);
+        }
+      } else {
+        print("FAIL: file not readable: $filename\n");
+        exit(2);
+      }
+    } else {
+      print("FAIL: file not found: $filename\n");
+      exit(1);
+    }
+  }
+
+  $arg_filename = get_filename($argv);
+  if (false !== $arg_filename) {
+    mailconf($arg_filename);
+  } else {
+    print("mailconf.phs v0.1\n");
+    print("\n");
+    print("Usage:\n");
+    print("sudo php ./mailconf.phs \$filename\n");
+  }
+
+?>

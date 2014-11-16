@@ -1,0 +1,21 @@
+<?php
+
+  function opendkim_signingtable($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# domain -> dns entry" . PHP_EOL;
+
+    if (is_array($domains)) {
+      for ($index = 0; $index < count($domains); $index++) {
+        // look for domains that have a "selector"
+        $assignments = getDomainAssignments($clean_input, $domains[$index]);
+        $selector    = getLastAssignment($assignments, SELECTOR_WORD);
+
+        if (null !== $selector) {
+          $output .= $domains[$index][LEFT_VALUE] . SPACE_CHAR . $selector . "._domainkey." . $domains[$index][LEFT_VALUE] . PHP_EOL;
+        }
+      }
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

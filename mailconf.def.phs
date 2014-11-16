@@ -1,0 +1,42 @@
+<?php
+
+  define("ADDRESS_CHAR",    "@");
+  define("ASSIGNMENT_CHAR", "=");
+  define("COMMENT_CHAR",    "#");
+  define("C_BRACKET_CHAR",  "]");
+  define("O_BRACKET_CHAR",  "[");
+  define("LIST_CHAR",       ",");
+  define("PARAM_CHAR",      ".");
+  define("PASSWD_CHAR",     ":");
+  define("SELF_CHAR",       "*");
+  define("SLASH_CHAR",      "/");
+  define("SPACE_CHAR",      " ");
+
+  define("GID_WORD",         "gid");
+  define("HOME_WORD",        "home");
+  define("IN_WORD",          "in");
+  define("INOUT_WORD",       "inout");
+  define("OUT_WORD",         "out");
+  define("PASSWORD_WORD",    "password");
+  define("SELECTOR_WORD",    "selector");
+  define("UID_WORD",         "uid");
+  define("USERDB_MAIL_WORD", "userdb_mail");
+
+  define("ADDRESS_STATE",    "address");
+  define("ASSIGNMENT_STATE", "assignment");
+  define("DOMAIN_STATE",     "domain");
+
+  define("LEFT_VALUE",  "left");
+  define("RIGHT_VALUE", "right");
+  define("STATE_VALUE", "state");
+
+  define("FILE_BEFORE",       dirname(__FILE__) . "/mailconf.");
+  define("FILE_AFTER",        ".phs");
+  define("FILE_PARAM_BEFORE", "param.");
+  define("FILE_PARAM_AFTER",  ".");
+  define("FILE_TRIGGER",      "file.");
+
+  define("TRIGGER_REPLACE_FROM", ".");
+  define("TRIGGER_REPLACE_TO",   "_");
+
+?>

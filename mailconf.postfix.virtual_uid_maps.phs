@@ -1,0 +1,45 @@
+<?php
+
+  function postfix_virtual_uid_maps($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# address -> UID" . PHP_EOL;
+
+    if (is_array($addresses) && is_array($params)) {
+      if (is_string($params[null])) {
+        for ($index = 0; $index < count($addresses); $index++) {
+          // look for addresses that have a "password"
+          $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+          $password    = getLastAssignment($assignments, PASSWORD_WORD);
+          $uid         = getLastAssignment($assignments, UID_WORD);
+
+          // password is not set at all = forwarding
+          if (null !== $password) {
+            // password is set but empty = error
+            if (!empty($password)) {
+              // find UID of user
+              if (empty($uid)) {
+                // default value
+                $uid = $params[null];
+              }
+
+              $uid = unroot_get_uid($uid);
+              if (0 <= $uid) {
+                $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . $uid . PHP_EOL;
+              } else {
+                return "unknown uid for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+            } else {
+              return "empty password for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+            }
+          }
+        }
+      } else {
+        return "missing parameter: param.postfix.virtual_uid_maps";
+      }
+    } else {
+      return "missing parameter: param.postfix.virtual_uid_maps";
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

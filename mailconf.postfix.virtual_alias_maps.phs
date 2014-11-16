@@ -1,0 +1,112 @@
+<?php
+
+  function postfix_virtual_alias_maps($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# recipient address -> forwarding address" . PHP_EOL;
+
+    if (is_array($addresses) && is_array($domains)) {
+      for ($index = 0; $index < count($addresses); $index++) {
+        // look for addresses that have an "in" or "inout" assignment
+        $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+        $in          = getAllAssignments($assignments, IN_WORD);
+        $inout       = getAllAssignments($assignments, INOUT_WORD);
+
+        if ((null !== $in) || (null !== $inout)) {
+          // merge arrays
+          $forwards = array();
+
+          if (null !== $in) {
+            for ($index2 = 0; $index2 < count($in); $index2++) {
+              // replace self-mentioning
+              if (0 === strcasecmp($in[$index2], SELF_CHAR)) {
+                $in[$index2] = $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+
+              // ignore duplicates
+              $found = false;
+              for ($index3 = 0; $index3 < count($forwards); $index3++) {
+                if (0 === strcasecmp($in[$index2], $forwards[$index3])) {
+                  $found = true;
+                  break;
+                }
+              }
+              if (!$found) {
+                array_push($forwards, $in[$index2]);
+              }
+            }
+          }
+
+          if (null !== $inout) {
+            for ($index2 = 0; $index2 < count($inout); $index2++) {
+              // replace self-mentioning
+              if (0 === strcasecmp($inout[$index2], SELF_CHAR)) {
+                $inout[$index2] = $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+
+              // ignore duplicates
+              $found = false;
+              for ($index3 = 0; $index3 < count($forwards); $index3++) {
+                if (0 === strcasecmp($inout[$index2], $forwards[$index3])) {
+                  $found = true;
+                  break;
+
+                }
+              }
+              if (!$found) {
+                array_push($forwards, $inout[$index2]);
+              }
+            }
+          }
+
+          // read forwards and check for existence as mailbox
+          for ($index2 = 0; $index2 < count($forwards); $index2++) {
+            // check if it is an address
+            $address_pos = stripos($forwards[$index2], ADDRESS_CHAR);
+
+            // address char must not be the first character in the line
+            // or the last character in the line
+            if ((false !== $address_pos) &&
+                (0 < $address_pos) &&
+                ((strlen($forwards[$index2])-1) > $address_pos)) {
+              $left_input  = trim(substr($forwards[$index2], 0, $address_pos));
+              $right_input = trim(substr($forwards[$index2], $address_pos+strlen(ADDRESS_CHAR)));
+
+              // check if forwarding address is local
+              for ($index3 = 0; $index3 < count($domains); $index3++) {
+                if (0 === strcasecmp($right_input, $domains[$index3][LEFT_VALUE])) {
+                  $local_mailbox = false;
+
+                  // check if local forwarding address is a mailbox
+                  for ($index4 = 0; $index4 < count($addresses); $index4++) {
+                    if ((0 === strcasecmp($left_input, $addresses[$index4][LEFT_VALUE])) &&
+                        (0 === strcasecmp($right_input, $addresses[$index4][RIGHT_VALUE]))) {
+                      $assignments = getAddressAssignments($clean_input, $addresses[$index4]);
+                      $password    = getLastAssignment($assignments, PASSWORD_WORD);
+
+                      // only addresses with passwords are mailboxes
+                      $local_mailbox = (!empty($password));
+
+                      break;
+                    }
+                  }
+
+                  if (!$local_mailbox) {
+                    return "local forward address " . $forwards[$index2] . " is not a mailbox: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+                  } else {
+                    break;
+                  }
+                }
+              }
+            } else {
+              return "malformed forwarding recipient for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+            }
+          }
+
+          $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . implode(LIST_CHAR, $forwards) . PHP_EOL;
+        }
+      }
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

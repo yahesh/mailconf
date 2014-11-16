@@ -1,0 +1,96 @@
+<?php
+
+  function dovecot_passwdfile($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# username:password:uid:gid::home::userdb_mail=maildir:~/Maildir" . PHP_EOL;
+
+    if (is_array($addresses)) {
+      for ($index = 0; $index < count($addresses); $index++) {
+        // look for addresses that have a "password"
+        $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+        $gid         = getLastAssignment($assignments, GID_WORD);
+        $home        = getLastAssignment($assignments, HOME_WORD);
+        $password    = getLastAssignment($assignments, PASSWORD_WORD);
+        $uid         = getLastAssignment($assignments, UID_WORD);
+        $userdb_mail = getLastAssignment($assignments, USERDB_MAIL_WORD);
+
+        // password is not set at all = forwarding
+        if (null !== $password) {
+          // password is set but empty = error
+          if (!empty($password)) {
+            // try defaults from parameters if
+            // values are not set explicitly
+            if (null === $uid) {
+              if (is_array($params)) {
+                if (!empty($params[UID_WORD])) {
+                  $uid = $params[UID_WORD];
+                }
+              }
+            }
+            if (null === $gid) {
+              if (is_array($params)) {
+                if (!empty($params[GID_WORD])) {
+                  $gid = $params[GID_WORD];
+                }
+              }
+
+              // assume that gid = uid if gid is not set
+              if (!empty($uid)) {
+                $gid = $uid;
+              }
+            }
+            if (null === $home) {
+              if (is_array($params)) {
+                if (!empty($params[HOME_WORD])) {
+                  $home = $params[HOME_WORD];
+                }
+              }
+            }
+            if (null === $userdb_mail) {
+              if (is_array($params)) {
+                if (!empty($params[USERDB_MAIL_WORD])) {
+                  $userdb_mail = $params[USERDB_MAIL_WORD];
+                }
+              }
+            }
+
+            // check correctness of values
+            // set to empty string if not set
+            if (empty($gid)) {
+              $gid = "";
+            } else {
+              $gid = unroot_get_gid($gid);
+              if (0 > $gid) {
+                return "unknown gid for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+            }
+            if (empty($home)) {
+              $home = "";
+            } else {
+              $home = $home . $addresses[$index][LEFT_VALUE];
+            }
+            if (empty($uid)) {
+              $uid = "";
+            } else {
+              $uid = unroot_get_gid($uid);
+              if (0 > $uid) {
+                return "unknown uid for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+            }
+            if (empty($userdb_mail)) {
+              $userdb_mail = "";
+            } else {
+              $userdb_mail = USERDB_MAIL_WORD . ASSIGNMENT_CHAR . $userdb_mail;
+            }
+
+            $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . PASSWD_CHAR . $password . PASSWD_CHAR . $uid . PASSWD_CHAR . $gid . PASSWD_CHAR . PASSWD_CHAR . $home . PASSWD_CHAR . PASSWD_CHAR . $userdb_mail . PHP_EOL;
+          } else {
+            return "empty password for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+          }
+        }
+      }
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

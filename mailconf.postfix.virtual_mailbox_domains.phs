@@ -1,0 +1,15 @@
+<?php
+
+  function postfix_virtual_mailbox_domains($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# domain -> dummy" . PHP_EOL;
+
+    if (is_array($domains)) {
+      for ($index = 0; $index < count($domains); $index++) {
+        $output .= $domains[$index][LEFT_VALUE] . SPACE_CHAR . "ok" . PHP_EOL;
+      }
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

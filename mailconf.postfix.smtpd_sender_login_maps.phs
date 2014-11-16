@@ -1,0 +1,120 @@
+<?php
+
+  function postfix_smtpd_sender_login_maps($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# envelope address -> SASL account" . PHP_EOL;
+
+    if (is_array($addresses) && is_array($domains)) {
+      for ($index = 0; $index < count($addresses); $index++) {
+        // look for addresses that have a "out" or "inout" assignment
+        $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+        $inout       = getAllAssignments($assignments, INOUT_WORD);
+        $out         = getAllAssignments($assignments, OUT_WORD);
+        $password    = getLastAssignment($assignments, PASSWORD_WORD);
+
+        // merge arrays
+        $senders = array();
+
+        // add self to senders list if self is a mailbox
+        // only addresses with passwords are mailboxes
+        if (!empty($password)) {
+          array_push($senders, $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE]);
+        }
+
+        if ((null !== $inout) || (null !== $out)) {
+          if (null !== $inout) {
+            for ($index2 = 0; $index2 < count($inout); $index2++) {
+              // replace self-mentioning
+              if (0 === strcasecmp($inout[$index2], SELF_CHAR)) {
+                $inout[$index2] = $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+
+              // ignore duplicates
+              $found = false;
+              for ($index3 = 0; $index3 < count($senders); $index3++) {
+                if (0 === strcasecmp($inout[$index2], $senders[$index3])) {
+                  $found = true;
+                  break;
+
+                }
+              }
+              if (!$found) {
+                array_push($senders, $inout[$index2]);
+              }
+            }
+          }
+
+          if (null !== $out) {
+            for ($index2 = 0; $index2 < count($out); $index2++) {
+              // replace self-mentioning
+              if (0 === strcasecmp($out[$index2], SELF_CHAR)) {
+                $out[$index2] = $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+
+              // ignore duplicates
+              $found = false;
+              for ($index3 = 0; $index3 < count($senders); $index3++) {
+                if (0 === strcasecmp($out[$index2], $senders[$index3])) {
+                  $found = true;
+                  break;
+
+                }
+              }
+              if (!$found) {
+                array_push($senders, $out[$index2]);
+              }
+            }
+          }
+
+          // read senders and check for existence as mailbox
+          for ($index2 = 0; $index2 < count($senders); $index2++) {
+            // check if it is an address
+            $address_pos = stripos($senders[$index2], ADDRESS_CHAR);
+
+            // address char must not be the first character in the line
+            // or the last character in the line
+            if ((false !== $address_pos) &&
+                (0 < $address_pos) &&
+                ((strlen($senders[$index2])-1) > $address_pos)) {
+              $left_input  = trim(substr($senders[$index2], 0, $address_pos));
+              $right_input = trim(substr($senders[$index2], $address_pos+strlen(ADDRESS_CHAR)));
+
+              // check if sender address is local
+              $local_mailbox = false;
+
+              for ($index3 = 0; $index3 < count($domains); $index3++) {
+                if (0 === strcasecmp($right_input, $domains[$index3][LEFT_VALUE])) {
+                  // check if local sender address is a mailbox
+                  for ($index4 = 0; $index4 < count($addresses); $index4++) {
+                    if ((0 === strcasecmp($left_input, $addresses[$index4][LEFT_VALUE])) &&
+                        (0 === strcasecmp($right_input, $addresses[$index4][RIGHT_VALUE]))) {
+                      $assignments = getAddressAssignments($clean_input, $addresses[$index4]);
+                      $password    = getLastAssignment($assignments, PASSWORD_WORD);
+
+                      // only addresses with passwords are mailboxes
+                      $local_mailbox = (!empty($password));
+
+                      break;
+                    }
+                  }
+
+                  break;
+                }
+              }
+
+              if (!$local_mailbox) {
+                return "local sender address " . $senders[$index2] . " is not a mailbox: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+            } else {
+              return "malformed sender for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+            }
+          }
+        }
+
+        $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . implode(LIST_CHAR, $senders) . PHP_EOL;
+      }
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

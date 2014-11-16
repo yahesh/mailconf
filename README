@@ -1,0 +1,6 @@
+README:
+
+1.) Copy all mailconf.* files to a location that can not be accessed remotely
+2.) Install https://hg.nhg.name/unchroot/
+3.) Write configuration file which defines the content of the generated lists.
+4.) Generate lists by calling: sudo php mailconf.phs <Configuration-File-Name>

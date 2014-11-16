@@ -1,0 +1,33 @@
+<?php
+
+  function postfix_virtual_mailbox_maps($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# address -> storage-path/" . PHP_EOL;
+
+    if (is_array($addresses) && is_array($params)) {
+      if (is_string($params[null])) {
+        for ($index = 0; $index < count($addresses); $index++) {
+          // look for addresses that have a "password"
+          $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+          $password    = getLastAssignment($assignments, PASSWORD_WORD);
+
+          // password is not set at all = forwarding
+          if (null !== $password) {
+            // password is set but empty = error
+            if (!empty($password)) {
+              $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . $addresses[$index][LEFT_VALUE] . SLASH_CHAR . $params[null] . PHP_EOL;
+            } else {
+              return "empty password for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+            }
+          }
+        }
+      } else {
+        return "missing parameter: param.postfix.virtual_mailbox_maps";
+      }
+    } else {
+      return "missing parameter: param.postfix.virtual_mailbox_maps";
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

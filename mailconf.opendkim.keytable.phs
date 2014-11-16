@@ -1,0 +1,27 @@
+<?php
+
+  function opendkim_keytable($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# dns entry -> domain:selector:keyfile" . PHP_EOL;
+
+    if (is_array($domains) && is_array($params)) {
+      if (is_string($params[null])) {
+        for ($index = 0; $index < count($domains); $index++) {
+          // look for domains that have a "selector"
+          $assignments = getDomainAssignments($clean_input, $domains[$index]);
+          $selector    = getLastAssignment($assignments, SELECTOR_WORD);
+
+          if (null !== $selector) {
+            $output .= $selector . "._domainkey." . $domains[$index][LEFT_VALUE] . SPACE_CHAR . $domains[$index][LEFT_VALUE] . PASSWD_CHAR . $selector . PASSWD_CHAR . $params[null] . $selector . ".private" . PHP_EOL;
+          }
+        }
+      } else {
+        return "missing parameter: param.opendkim.keytable";
+      }
+    } else {
+      return "missing parameter: param.opendkim.keytable";
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>

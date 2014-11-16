@@ -1,0 +1,123 @@
+# defines a domain
+[example.com]
+
+# defines the DKIM selector of that domain
+selector = send2014
+
+# defines an address
+# defined addresses must be within a defined domain
+[kenny@example.com]
+
+# password of that address
+# addresses with passwords are assumed to be mailboxes
+password = test
+
+# UID of that address
+# only mailboxes need UIDs as these have to be owned by a system user
+uid = mail_kenny
+
+# implicitly a mailbox is always allowed to send and receive mails of itself
+# inout = *
+
+#GID of that address
+# only mailboxes need GIDs as these have to be owned by a system user
+gid = mail_kenny
+
+# defines another address
+[submit@example.com]
+
+# password of that address
+# addresses with passwords are assumed to be mailboxes
+password = test
+
+# mails sent to that address will be forwarded to an external address
+in = submit@example.net
+
+# mails sent to that address will also be forwarded to another internal mailbox
+# that mailbox is also allowed to send mails on behalf of this address
+inout = kenny@example.com
+
+# whenver forwards are defined for a mailbox a forward to the mailbox itself
+# has to be defined - this makes it possible to define send-only accounts
+in = *
+
+# implicitly a mailbox is always allowed to send mails on behalf of itself
+# out = *
+
+# defines yet another address
+[postmaster@example.com]
+
+# just a plain internal forward without send-privileges
+in = kenny@example.com
+
+# the empty bracket defines the configuration block
+[]
+
+# mailconf works as follows:
+# Each file output format is implemented in a file
+# "mailconf.<x>.phs". These files are triggered by
+# defining the value "file.<x>" and assigning it an
+# output file name. In addition these files may
+# require additional configuration parameters which
+# are defined with "param.<x>.<y>" whereby ".<y>" may
+# be omitted depending on the output implementation
+# (e.g. when only a single configuration parameter is
+# required). Export files shall warn you when a
+# mandatory configuration parameter has not been set.
+#
+# If you do not want to create a specific file then
+# just comment out the corresponding "file.<x>" line.
+# The corresponding "param.<x>.<y>" can stay intact.
+# They will just be ignored.
+#
+# By specifying a "file.<x>" more that once that file
+# will be generated several times (e.g. when one file
+# is needed in different locations).
+
+# dovecot configuration files
+file.dovecot.passwdfile = /etc/dovecot/auth/accounts
+
+# OpenDKIM configuration files
+file.opendkim.ExternalIgnoreList = /etc/opendkim/trusted.conf
+#file.opendkim.InternalHosts     = /etc/opendkim/trusted.conf
+file.opendkim.KeyTable           = /etc/opendkim/keys.conf
+file.opendkim.SigningTable       = /etc/opendkim/domains.conf
+
+# Postfix configuration files
+file.postfix.smtpd_sender_login_maps = /etc/postfix/logins.conf
+file.postfix.virtual_alias_maps      = /etc/postfix/aliases.conf
+file.postfix.virtual_gid_maps        = /etc/postfix/gids.conf
+file.postfix.virtual_mailbox_domains = /etc/postfix/domains.conf
+file.postfix.virtual_mailbox_maps    = /etc/postfix/mailboxes.conf
+file.postfix.virtual_uid_maps        = /etc/postfix/uids.conf
+
+# default uid for mailboxes (optional)
+param.dovecot.passwdfile.uid = vmail
+
+#default gid for mailboxes (optional)
+param.dovecot.passwdfile.gid = vmail
+
+# home path for mailboxes (optional)
+# should match with Postfix virtual_mailbox_base
+#param.dovecot.passwdfile.home = /srv/mailusers/
+
+# value of userdb_mail (optional)
+# default value: maildir:~/Maildir
+#param.dovecot.passwdfile.userdb_mail = maildir:~/Maildir
+
+# path to DKIM private keys (mandatory)
+param.opendkim.KeyTable = /etc/opendkim/keys/
+
+# value of Postfix home_mailbox (mandatory)
+# default value: Maildir/
+param.postfix.virtual_mailbox_maps = Maildir/
+
+# default uid for mailboxes (mandatory)
+param.postfix.virtual_uid_maps = vmail
+
+# default gid for mailboxes (mandatory)
+param.postfix.virtual_gid_maps = vmail
+
+# UID and GID of mailconf.phs process (mandatory)
+uid = mailconf
+gid = mailconf

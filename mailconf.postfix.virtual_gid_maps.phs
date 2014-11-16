@@ -1,0 +1,45 @@
+<?php
+
+  function postfix_virtual_gid_maps($output_path, $clean_input, $domains, $addresses, $params) {
+    $output = "# address -> GID" . PHP_EOL;
+
+    if (is_array($addresses) && is_array($params)) {
+      if (is_string($params[null])) {
+        for ($index = 0; $index < count($addresses); $index++) {
+          // look for addresses that have a "password"
+          $assignments = getAddressAssignments($clean_input, $addresses[$index]);
+          $password    = getLastAssignment($assignments, PASSWORD_WORD);
+          $gid         = getLastAssignment($assignments, GID_WORD);
+
+          // password is not set at all = forwarding
+          if (null !== $password) {
+            // password is set but empty = error
+            if (!empty($password)) {
+              // find GID of user
+              if (empty($gid)) {
+                // default value
+                $gid = $params[null];
+              }
+
+              $gid = unroot_get_gid($gid);
+              if (0 <= $gid) {
+                $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . $gid . PHP_EOL;
+              } else {
+                return "unknown gid for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+              }
+            } else {
+              return "empty password for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
+            }
+          }
+        }
+      } else {
+        return "missing parameter: param.postfix.virtual_gid_maps";
+      }
+    } else {
+      return "missing parameter: param.postfix.virtual_gid_maps";
+    }
+
+    return (false !== file_put_contents($output_path, $output));
+  }
+
+?>
