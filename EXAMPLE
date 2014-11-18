@@ -19,7 +19,7 @@ uid = mail_kenny
 # implicitly a mailbox is always allowed to send and receive mails of itself
 # inout = *
 
-#GID of that address
+# GID of that address
 # only mailboxes need GIDs as these have to be owned by a system user
 gid = mail_kenny
 
@@ -94,7 +94,7 @@ file.postfix.virtual_uid_maps        = /etc/postfix/uids.conf
 # default uid for mailboxes (optional)
 param.dovecot.passwdfile.uid = vmail
 
-#default gid for mailboxes (optional)
+# default gid for mailboxes (optional)
 param.dovecot.passwdfile.gid = vmail
 
 # home path for mailboxes (optional)
