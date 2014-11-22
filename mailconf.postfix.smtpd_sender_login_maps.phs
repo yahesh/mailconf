@@ -5,7 +5,7 @@
 
     if (is_array($addresses) && is_array($domains)) {
       for ($index = 0; $index < count($addresses); $index++) {
-        // look for addresses that have a "out" or "inout" assignment
+        // look for addresses that have an "out" or "inout" assignment
         $assignments = getAddressAssignments($clean_input, $addresses[$index]);
         $inout       = getAllAssignments($assignments, INOUT_WORD);
         $out         = getAllAssignments($assignments, OUT_WORD);
@@ -110,7 +110,10 @@
           }
         }
 
-        $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . implode(LIST_CHAR, $senders) . PHP_EOL;
+        // only add to list if there is at least one sender
+        if (0 < count($senders)) {
+          $output .= $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE] . SPACE_CHAR . implode(LIST_CHAR, $senders) . PHP_EOL;
+        }
       }
     }
 

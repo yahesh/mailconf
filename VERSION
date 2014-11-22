@@ -1,3 +1,6 @@
+VERSION: 0.1a3
+* fix: mailconf.postfix.smtpd_sender_login_maps added lines without sender assignment
+
 VERSION: 0.1a2
 * fix: dovecot passwd file used default GID instead of default UID
 
