@@ -71,7 +71,7 @@
             if (empty($uid)) {
               $uid = "";
             } else {
-              $uid = unroot_get_gid($uid);
+              $uid = unroot_get_uid($uid);
               if (0 > $uid) {
                 return "unknown uid for address: " . $addresses[$index][LEFT_VALUE] . ADDRESS_CHAR . $addresses[$index][RIGHT_VALUE];
               }

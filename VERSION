@@ -1,2 +1,5 @@
+VERSION: 0.1a2
+* fix: dovecot passwd file used default GID instead of default UID
+
 VERSION: 0.1a1
 * initial version
