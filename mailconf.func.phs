@@ -17,13 +17,15 @@
 
     if (is_array($array)) {
       for ($index = 0; $index < count($array); $index++) {
-        if (0 === strcasecmp($key, $array[$index][LEFT_VALUE])) {
-          // initialize result
-          if (null === $result) {
-            $result = array();
-          }
+        if (ASSIGNMENT_STATE === $array[$index][STATE_VALUE]) {
+          if (0 === strcasecmp($key, $array[$index][LEFT_VALUE])) {
+            // initialize result
+            if (null === $result) {
+              $result = array();
+            }
 
-          array_push($result, $array[$index][RIGHT_VALUE]);
+            array_push($result, $array[$index][RIGHT_VALUE]);
+          }
         }
       }
     }

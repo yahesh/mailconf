@@ -1,3 +1,6 @@
+VERSION: 0.1a4
+* fix: getAllAssignments() now checks for ASSIGNMENT_STATE
+
 VERSION: 0.1a3
 * fix: mailconf.postfix.smtpd_sender_login_maps added lines without sender assignment
 
