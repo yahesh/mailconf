@@ -1,16 +1,18 @@
 <?php
 
-  define("ADDRESS_CHAR",    "@");
-  define("ASSIGNMENT_CHAR", "=");
-  define("COMMENT_CHAR",    "#");
-  define("C_BRACKET_CHAR",  "]");
-  define("O_BRACKET_CHAR",  "[");
-  define("LIST_CHAR",       ",");
-  define("PARAM_CHAR",      ".");
-  define("PASSWD_CHAR",     ":");
-  define("SELF_CHAR",       "*");
-  define("SLASH_CHAR",      "/");
-  define("SPACE_CHAR",      " ");
+  define("ADDRESS_CHAR",       "@");
+  define("ASSIGNMENT_CHAR",    "=");
+  define("COMMENT_CHAR",       "#");
+  define("C_BRACKET_CHAR",     "]");
+  define("C_PLACEHOLDER_CHAR", "}");
+  define("O_BRACKET_CHAR",     "[");
+  define("O_PLACEHOLDER_CHAR", "{\$");
+  define("LIST_CHAR",          ",");
+  define("PARAM_CHAR",         ".");
+  define("PASSWD_CHAR",        ":");
+  define("SELF_CHAR",          "*");
+  define("SLASH_CHAR",         "/");
+  define("SPACE_CHAR",         " ");
 
   define("GID_WORD",         "gid");
   define("HOME_WORD",        "home");
@@ -22,9 +24,10 @@
   define("UID_WORD",         "uid");
   define("USERDB_MAIL_WORD", "userdb_mail");
 
-  define("ADDRESS_STATE",    "address");
-  define("ASSIGNMENT_STATE", "assignment");
-  define("DOMAIN_STATE",     "domain");
+  define("ADDRESS_STATE",       "address");
+  define("ASSIGNMENT_STATE",    "assignment");
+  define("CONFIGURATION_STATE", "configuration");
+  define("DOMAIN_STATE",        "domain");
 
   define("LEFT_VALUE",  "left");
   define("RIGHT_VALUE", "right");

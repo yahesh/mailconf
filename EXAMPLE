@@ -37,15 +37,17 @@ in = submit@example.net
 # that mailbox is also allowed to send mails on behalf of this address
 inout = kenny@example.com
 
-# whenver forwards are defined for a mailbox a forward to the mailbox itself
-# has to be defined - this makes it possible to define send-only accounts
+# whenever forwards are defined for a mailbox, but the mailbox shall receive
+# the mails as well, a forwarding to the mailbox itself has to be defined
+# leaving this forwarding away makes it possible to define send-only accounts
 in = *
 
 # implicitly a mailbox is always allowed to send mails on behalf of itself
 # out = *
 
-# defines yet another address
-[postmaster@example.com]
+# defines yet another address, but as the domain part of the address is not set,
+# this address block is applied to all domains
+[postmaster@]
 
 # just a plain internal forward without send-privileges
 in = kenny@example.com

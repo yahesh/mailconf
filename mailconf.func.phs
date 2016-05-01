@@ -12,19 +12,186 @@
     return $result;
   }
 
+  // retrieve the names and values of the placeholders
+  function get_placeholders($params) {
+    $result = null;
+
+    // $params[0] is script name
+    // $params[1] is configuration file name
+    if (2 < count($params)) {
+      for ($index = 2; $index < count($params); $index++) {
+        $line = trim($params[$index]);
+
+        // check if it is an assignment
+        $assignment_pos = stripos($line, ASSIGNMENT_CHAR);
+
+        // assignment char must not be the first character in the line
+        // but may be the last character in the line
+        if ((false !== $assignment_pos) &&
+            (0 < $assignment_pos)) {
+          $left_line  = trim(substr($line, 0, $assignment_pos));
+          $right_line = trim(substr($line, $assignment_pos+strlen(ASSIGNMENT_CHAR)));
+
+          // initialize result
+          if (null === $result) {
+            $result = array();
+          }
+
+          // (re)set placeholder
+          $result[strtolower($left_line)] = $right_line;
+        }
+      }
+    }
+
+    return $result;
+  }
+
+  function applyPlaceholders($array, $placeholders) {
+    $result = null;
+
+    if (is_array($array)) {
+      $result = $array;
+
+      // iterate through all entries
+      foreach ($result as $key => $entry) {
+        // iterate through all placeholders
+        foreach ($placeholders as $subkey => $subentry) {
+          // search placeholder in left value
+          if (false !== stripos($entry[LEFT_VALUE], O_PLACEHOLDER_CHAR.$subkey.C_PLACEHOLDER_CHAR)) {
+            $result[$key][LEFT_VALUE] = str_ireplace(O_PLACEHOLDER_CHAR.$subkey.C_PLACEHOLDER_CHAR,
+                                                     $subentry,
+                                                     $entry[LEFT_VALUE]);
+          }
+
+          // search placeholder in right value
+          if (false !== stripos($entry[RIGHT_VALUE], O_PLACEHOLDER_CHAR.$subkey.C_PLACEHOLDER_CHAR)) {
+            $result[$key][RIGHT_VALUE] = str_ireplace(O_PLACEHOLDER_CHAR.$subkey.C_PLACEHOLDER_CHAR,
+                                                      $subentry,
+                                                      $entry[RIGHT_VALUE]);
+          }
+        }
+      }
+    }
+
+    return $result;
+  }
+
+  function cleanInput($array) {
+    $result = null;
+
+    if (is_array($array)) {
+      $configuration = getConfiguration($array);
+      if (is_array($configuration)) {
+        // initialize result
+        if (null === $result) {
+          $result = array();
+        }
+
+        // configuration header
+        array_push($result, array(STATE_VALUE => CONFIGURATION_STATE,
+                                  LEFT_VALUE  => null,
+                                  RIGHT_VALUE => null));
+
+        foreach($configuration as $entry) {
+          array_push($result, $entry);
+        }
+      }
+
+      $domains = getDomains($array);
+      if (is_array($domains)) {
+        // initialize result
+        if (null === $result) {
+          $result = array();
+        }
+
+        foreach ($domains as $entry) {
+          // domain header
+          array_push($result, $entry);
+
+          $domain_assignments = getDomainAssignments($array, $entry);
+          foreach ($domain_assignments as $subentry) {
+            // domain assignments
+            array_push($result, $subentry);
+          }
+        }
+      }
+
+      $addresses = getAddresses($array);
+      if (is_array($addresses)) {
+        // initialize result
+        if (null === $result) {
+          $result = array();
+        }
+
+        // find "<name>@" addresses and throw away their
+        // domain-fixed siblings
+        foreach ($addresses as $entry) {
+          if (null === $entry[RIGHT_VALUE]) {
+            foreach ($addresses as $subkey => $subentry) {
+              if ((null !== $subentry[RIGHT_VALUE]) &&
+                  (0 === strcasecmp($entry[LEFT_VALUE], $subentry[LEFT_VALUE]))) {
+                unset($addresses[$subkey]);
+              }
+            }
+          }
+        }
+
+        foreach ($addresses as $entry) {
+          // handle normal addresses normally
+          if (null !== $entry[RIGHT_VALUE]) {
+            // address header
+            array_push($result, $entry);
+
+            $address_assignments = getAddressAssignments($array, $entry);
+            foreach ($address_assignments as $subentry) {
+              // address assignments
+              array_push($result, $subentry);
+            }
+          } else {
+            // assignments of "name@" address
+            $address_assignments = getAddressAssignments($array, $entry);
+
+            foreach ($domains as $domain) {
+              $new_entry = array(STATE_VALUE => ADDRESS_STATE,
+                                 LEFT_VALUE  => $entry[LEFT_VALUE],
+                                 RIGHT_VALUE => $domain[LEFT_VALUE]);
+
+              // address header
+              array_push($result, $new_entry);
+
+              foreach ($address_assignments as $subentry) {
+                // address assignments
+                array_push($result, $subentry);
+              }
+
+              // assignments of domain-fixed sibling
+              $new_entry_assignments = getAddressAssignments($array, $new_entry);
+              foreach ($new_entry_assignments as $subentry) {
+                // address assignments
+                array_push($result, $subentry);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return $result;
+  }
+
   function getAllAssignments($array, $key) {
     $result = null;
 
     if (is_array($array)) {
-      for ($index = 0; $index < count($array); $index++) {
-        if (ASSIGNMENT_STATE === $array[$index][STATE_VALUE]) {
-          if (0 === strcasecmp($key, $array[$index][LEFT_VALUE])) {
+      foreach ($array as $entry) {
+        if (ASSIGNMENT_STATE === $entry[STATE_VALUE]) {
+          if (0 === strcasecmp($entry[LEFT_VALUE], $key)) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index][RIGHT_VALUE]);
+            array_push($result, $entry[RIGHT_VALUE]);
           }
         }
       }
@@ -37,7 +204,7 @@
     $result = null;
 
     $assignments = getAllAssignments($array, $key);
-    if (null !== $assignments) {
+    if (is_array($assignments)) {
       $result = $assignments[0];
     }
 
@@ -48,7 +215,7 @@
     $result = null;
 
     $assignments = getAllAssignments($array, $key);
-    if (null !== $assignments) {
+    if (is_array($assignments)) {
       $result = $assignments[count($assignments)-1];
     }
 
@@ -58,27 +225,36 @@
   function getAddressAssignments($array, $address) {
     $result = null;
 
-    if (is_array($array) &&
-        is_array($address)) {
+    if (is_array($array) && is_array($address)) {
       $is_address = false;
-      for ($index = 0; $index < count($array); $index++) {
+      foreach ($array as $entry) {
         if (!$is_address) {
           // ignore everything until we find the address line
-          if ((ADDRESS_STATE === $array[$index][STATE_VALUE]) &&
-              (0 === strcasecmp($array[$index][LEFT_VALUE], $address[LEFT_VALUE])) &&
-              (0 === strcasecmp($array[$index][RIGHT_VALUE], $address[RIGHT_VALUE]))) {
-            $is_address = true;
+          if ((ADDRESS_STATE === $entry[STATE_VALUE]) &&
+              (0 === strcasecmp($entry[LEFT_VALUE], $address[LEFT_VALUE]))) {
+            // "<name>@" addresses
+            if ((null === $entry[RIGHT_VALUE]) &&
+                (null === $address[RIGHT_VALUE])) {
+              $is_address = true;
+            } else {
+              // normal addresses
+              if ((null !== $entry[RIGHT_VALUE]) &&
+                  (null !== $address[RIGHT_VALUE]) &&
+                  (0 === strcasecmp($entry[RIGHT_VALUE], $address[RIGHT_VALUE]))) {
+                $is_address = true;
+              }
+            }
           }
         } else {
           // only proceed until next block
           // all entries must be assignments
-          if (ASSIGNMENT_STATE === $array[$index][STATE_VALUE]) {
+          if (ASSIGNMENT_STATE === $entry[STATE_VALUE]) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index]);
+            array_push($result, $entry);
           } else {
             // we're done here
             break;
@@ -94,17 +270,16 @@
     $result = null;
 
     if (is_array($array)) {
-      for ($index = 0; $index < count($array); $index++) {
-        if (ADDRESS_STATE === $array[$index][STATE_VALUE]) {
+      foreach ($array as $entry) {
+        if (ADDRESS_STATE === $entry[STATE_VALUE]) {
           // filter out configuration and domains
-          if ((null !== $array[$index][LEFT_VALUE]) &&
-              (null !== $array[$index][RIGHT_VALUE])) {
+          if (null !== $entry[LEFT_VALUE]) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index]);
+            array_push($result, $entry);
           }
         }
       }
@@ -118,25 +293,25 @@
 
     if (is_array($array)) {
       $is_configuration = false;
-      for ($index = 0; $index < count($array); $index++) {
+      foreach ($array as $entry) {
         if (!$is_configuration) {
           // ignore everything until we find the configuration line
           // configuration line is marked as empty bracket "[]"
-          if ((DOMAIN_STATE === $array[$index][STATE_VALUE]) &&
-              (null === $array[$index][LEFT_VALUE]) &&
-              (null === $array[$index][RIGHT_VALUE])) {
+          if ((CONFIGURATION_STATE === $entry[STATE_VALUE]) &&
+              (null === $entry[LEFT_VALUE]) &&
+              (null === $entry[RIGHT_VALUE])) {
             $is_configuration = true;
           }
         } else {
           // only proceed until next block
           // all entries must be assignments
-          if (ASSIGNMENT_STATE === $array[$index][STATE_VALUE]) {
+          if (ASSIGNMENT_STATE === $entry[STATE_VALUE]) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index]);
+            array_push($result, $entry);
           } else {
             // we're done here
             break;
@@ -151,27 +326,26 @@
   function getDomainAssignments($array, $domain) {
     $result = null;
 
-    if (is_array($array) &&
-        is_array($domain)) {
+    if (is_array($array) && is_array($domain)) {
       $is_domain = false;
-      for ($index = 0; $index < count($array); $index++) {
+      foreach ($array as $entry) {
         if (!$is_domain) {
           // ignore everything until we find the domain line
-          if ((DOMAIN_STATE === $array[$index][STATE_VALUE]) &&
-              (0 === strcasecmp($array[$index][LEFT_VALUE], $domain[LEFT_VALUE])) &&
-              (0 === strcasecmp($array[$index][RIGHT_VALUE], $domain[RIGHT_VALUE]))) {
+          if ((DOMAIN_STATE === $entry[STATE_VALUE]) &&
+              (0 === strcasecmp($entry[LEFT_VALUE], $domain[LEFT_VALUE])) &&
+              (0 === strcasecmp($entry[RIGHT_VALUE], $domain[RIGHT_VALUE]))) {
             $is_domain = true;
           }
         } else {
           // only proceed until next block
           // all entries must be assignments
-          if (ASSIGNMENT_STATE === $array[$index][STATE_VALUE]) {
+          if (ASSIGNMENT_STATE === $entry[STATE_VALUE]) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index]);
+            array_push($result, $entry);
           } else {
             // we're done here
             break;
@@ -187,17 +361,17 @@
     $result = null;
 
     if (is_array($array)) {
-      for ($index = 0; $index < count($array); $index++) {
-        if (DOMAIN_STATE === $array[$index][STATE_VALUE]) {
+      foreach ($array as $entry) {
+        if (DOMAIN_STATE === $entry[STATE_VALUE]) {
           // filter out configuration and addresses
-          if ((null !== $array[$index][LEFT_VALUE]) &&
-              (null === $array[$index][RIGHT_VALUE])) {
+          if ((null !== $entry[LEFT_VALUE]) &&
+              (null === $entry[RIGHT_VALUE])) {
             // initialize result
             if (null === $result) {
               $result = array();
             }
 
-            array_push($result, $array[$index]);
+            array_push($result, $entry);
           }
         }
       }

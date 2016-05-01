@@ -1,3 +1,14 @@
+VERSION: 0.2a1
+* feature: mailconf now supports address blocks that are applied to all domains:
+           address block headers that do not contain a domain, e.g. [hostmaster@]
+           will be expanded to be active for all domains
+* feature: mailconf now supports placeholders that are set through call parameters
+           when called like: php mailconf.phs <filename> <placeholder>=<value>
+           the term {$<placeholder>} can be used in the configuration file and will
+           be replaced with <value> upon execution
+* fix: the STATE_VALUE of the configuration block is now set to CONFIGURATION_STATE
+       instead of DOMAIN_STATE to clean things up a bit more
+
 VERSION: 0.1a4
 * fix: getAllAssignments() now checks for ASSIGNMENT_STATE
 

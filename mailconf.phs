@@ -5,7 +5,7 @@
   require_once(dirname(__FILE__) . "/mailconf.def.phs");
   require_once(dirname(__FILE__) . "/mailconf.func.phs");
 
-  function mailconf($filename) {
+  function mailconf($filename, $placeholders) {
     if (is_file($filename)) {
       $raw_input = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
       if (false !== $raw_input) {
@@ -35,12 +35,17 @@
               $address_pos = stripos($line, ADDRESS_CHAR);
 
               // address char must not be the first character in the line
-              // or the last character in the line
+              // but it may be the last character in the line to relate
+              // to all domains
               if ((false !== $address_pos) &&
-                  (0 < $address_pos) &&
-                  ((strlen($line)-1) > $address_pos)) {
+                  (0 < $address_pos)) {
                 $left_line  = trim(substr($line, 0, $address_pos));
                 $right_line = trim(substr($line, $address_pos+strlen(ADDRESS_CHAR)));
+
+                // we identify "<name>@" this way
+                if (0 === strlen($right_line)) {
+                  $right_line = null;
+                }
 
                 $tmp = array();
                 $tmp[LEFT_VALUE]  = $left_line;
@@ -52,17 +57,19 @@
               } else {
                 if (false === $address_pos) {
                   // remove unnessary characters
-                  $line = trim($line);
+                  $line  = trim($line);
+                  $state = DOMAIN_STATE;
 
                   // we identify the configuration block this way
                   if (0 === strlen($line)) {
-                    $line = null;
+                    $line  = null;
+                    $state = CONFIGURATION_STATE;
                   }
 
                   $tmp = array();
                   $tmp[LEFT_VALUE]  = $line;
                   $tmp[RIGHT_VALUE] = null;
-                  $tmp[STATE_VALUE] = DOMAIN_STATE;
+                  $tmp[STATE_VALUE] = $state;
 
                   // add to clean input
                   array_push($clean_input, $tmp);
@@ -96,6 +103,10 @@
             }
           }
         }
+
+        // prepare input for further actions
+	$clean_input = applyPlaceholders($clean_input, $placeholders);
+        $clean_input = cleanInput($clean_input);
 
         if (0 < count($clean_input)) {
           // read own configuration
@@ -241,12 +252,12 @@
 
   $arg_filename = get_filename($argv);
   if (false !== $arg_filename) {
-    mailconf($arg_filename);
+    mailconf($arg_filename, get_placeholders($argv));
   } else {
-    print("mailconf.phs v0.1\n");
+    print("mailconf.phs v0.2\n");
     print("\n");
     print("Usage:\n");
-    print("sudo php ./mailconf.phs \$filename\n");
+    print("sudo php ./mailconf.phs \$filename [(\$placeholder=\$value)+]\n");
   }
 
 ?>
