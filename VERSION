@@ -1,3 +1,6 @@
+VERSION: 0.2a2
+* fix: the internal and external hosts file now also includes "::1"
+
 VERSION: 0.2a1
 * feature: mailconf now supports address blocks that are applied to all domains:
            address block headers that do not contain a domain, e.g. [hostmaster@]

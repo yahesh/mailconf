@@ -3,6 +3,7 @@
   function opendkim_externalignorelist($output_path, $clean_input, $domains, $addresses, $params) {
     $output  = "# hostnames" . PHP_EOL;
     $output .= "127.0.0.1" . PHP_EOL;
+    $output .= "::1" . PHP_EOL;
     $output .= "localhost" . PHP_EOL;
 
     return (false !== file_put_contents($output_path, $output));
